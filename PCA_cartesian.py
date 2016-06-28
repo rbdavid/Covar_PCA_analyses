@@ -90,7 +90,7 @@ while start <= end:
 	u.load_new('%sproduction.%s/production.%s.dcd' %(traj_loc,start,start))
 
 	for ts in u.trajectory:
-		dimensions = u.dimensions[:3]
+#		dims = u.dimensions[:3]
 		u_all.translate(-u_backbone.center_of_mass())
 
 		R,d = rotation_matrix(u_align.positions,pos0)
