@@ -44,11 +44,10 @@ def ffprint(string):
 # INITIATE AND CALCULATE THE IMPORTANT INFORMATION ABOUT THE AVG STRUCTURE
 avg = MDAnalysis.Universe(avg_pdb)
 avg_all = avg.select_atoms('all')
-avg_backbone = avg.select_atoms('backbone')
 avg_align = avg.select_atoms(alignment)
 avg_important = avg.select_atoms(important)
 
-avg_all.translate(-avg_backbone.center_of_mass())
+avg_all.translate(-avg_align.center_of_mass())
 pos0 = avg_align.positions
 
 nRes = len(avg_important.residues)
@@ -62,7 +61,6 @@ for i in range(nRes):
 # INITIATE AND CREATE THE IMPORTANT ATOM SELECTIONS FOR THE IMPORTANT UNIVERSE
 u = MDAnalaysis.Universe(pdb_file)
 u_all = u.select_atoms('all')
-u_backbone = u.select_atoms('backbone')
 u_align = u.select_atoms(alignment)
 u_important = u.select_atoms(important)
 
@@ -91,7 +89,7 @@ while start <= end:
 
 	for ts in u.trajectory:
 		dimensions = u.dimensions[:3]
-		u_all.translate(-u_backbone.center_of_mass())
+		u_all.translate(-u_align.center_of_mass())
 
 		R,d = rotation_matrix(u_align.positions,pos0)
 		u_all.rotate(R)
