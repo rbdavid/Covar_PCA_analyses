@@ -50,13 +50,11 @@ avg_important = avg.select_atoms(important)
 avg_all.translate(-avg_align.center_of_mass())
 pos0 = avg_align.positions
 
-nRes = len(avg_important.residues)
-avgCoord = zeros((nRes,3),dtype=float)
+nRes = avg_important.n_residues
+avgCoord = zeros((nRes,3),dtype=np.float64)
 
 for i in range(nRes):
-	res0 = avg_important.residues[i]
-	com0 = res0.center_of_mass()
-	avgCoord[i,:] = com0
+	avgCoord[i,:] = avg_important.residues[i].ceneter_of_mass()
 
 # INITIATE AND CREATE THE IMPORTANT ATOM SELECTIONS FOR THE IMPORTANT UNIVERSE
 u = MDAnalaysis.Universe(pdb_file)
@@ -77,9 +75,10 @@ while temp <= end:
 	temp += 1
 
 # ARRAY DECLARATION
-allCoord = zeros((nSteps,nRes,3),dtype=float)
-covar_array = zeros((3*nRes, 3*nRes),dtype=float)
-temp_array = zeros(3*nRes,dtype=float)
+allCoord = zeros((nSteps,nRes,3),dtype=np.float64)
+cart_covar_array = zeros((3*nRes, 3*nRes),dtype=np.float64)
+dist_covar_array = zeros((nRes,nRes),dtype=np.float64)
+temp_array = zeros(3*nRes,dtype=np.float64)
 
 # TRAJECTORY ANALYSIS; COLLECTING THE COM INFO OF EACH RESIDUE OF INTEREST
 temp = 0
@@ -89,29 +88,35 @@ while start <= end:
 
 	for ts in u.trajectory:
 		u_all.translate(-u_align.center_of_mass())
-#		dims = u.dimensions[:3]
-
 		R,d = rotation_matrix(u_align.positions,pos0)
 		u_all.rotate(R)
-
 		for i in range(nRes):
-			res0 = u_important.residues[i]
-			com0 = res0.center_of_mass()
-			allCoord[temp,i,:] = com0
-
+			allCoord[temp,i,:] = u_important.residues[i].center_of_mass()
 		temp += 1 
 	start += 1
 
-# CALCULATING THE COVAR ARRAY OF COM CARTESIAN COORDINATES
+# CALCULATING THE DISTANCE COVAR MATRIX OF RESIDUE RESIDUE PAIRS
+for i in range(nSteps):
+	for res1 in range(nRes):
+		for res2 in range(res1,nRes):
+			dist_covar_array[res1,res2] += dot_prod(allCoord[i,res1,:],allCoord[i,res2,:])
+dist_covar_array /= nSteps
+
+# CALCULATING THE CARTESIAN COVAR ARRAY OF  RESIDUE RESIDUE PAIRS
 for i in range(nSteps):
 	temp_array = flatten(allCoord[i])
 	for res1 in range(3*nRes):
 		for res2 in range(res1,3*nRes):
-			covar_array[res1,res2] += temp_array[res1]*temp_array[res2]
+			cart_covar_array[res1,res2] += temp_array[res1]*temp_array[res2]
+cart_covar_array /= nSteps
 
-covar_array /= nSteps
+# COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN
+for res1 in range(nRes):
+	for res2 in range(res1,nRes):
+		#dist_covar_array[res1,res2] -= dot_prod
 
-# COMPLETE THE COVAR MATRIX ANALYSIS; NEED TO SUBTRACT OUT THE MEAN
+
+# COMPLETE THE CARTESIAN COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN
 temp_array = flatten(avgCoord)
 for res1 in range(3*nRes):
 	for res2 in range(res1,3*nRes):
