@@ -54,7 +54,7 @@ nRes = avg_important.n_residues
 avgCoord = zeros((nRes,3),dtype=np.float64)
 
 for i in range(nRes):
-	avgCoord[i,:] = avg_important.residues[i].ceneter_of_mass()
+	avgCoord[i,:] = avg_important.residues[i].center_of_mass()
 
 # INITIATE AND CREATE THE IMPORTANT ATOM SELECTIONS FOR THE IMPORTANT UNIVERSE
 u = MDAnalaysis.Universe(pdb_file)
@@ -109,8 +109,8 @@ msd_array /= nSteps
 # COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN AND NORMALIZING BY THE VARIANCE
 for res1 in range(nRes):
 	for res2 in range(res1,nRes):
-		dist_covar_array[res1,res2] -= dot_prod(avgCoord[res1,:],avgCoord[res2,:])
-		dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])
+		dist_covar_array[res1,res2] -= dot_prod(avgCoord[res1,:],avgCoord[res2,:])	# Subtracting out the mean positions
+		dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])	# Normalizing each matrix element by the sqrt of the variance of the positions for res1 and res2
 		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 
 # CALCULATING THE CARTESIAN COVAR ARRAY OF RESIDUE RESIDUE PAIRS
@@ -129,12 +129,19 @@ for res1 in range(3*nRes):
 		covar_array[res2,res1] = covar_array[res1,res2]
 
 # OUTPUTING THE COVAR MATRIX
-out1 = open('%03d.%03d.cover_matrix.dat' %(sys.argv[3],end),'w')
-for i in range(3*nRes):
-	for j in range(3*nRes):
-		out1.write('%e   ' %(covar_array[i,j]))
+out1 = open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w')
+for i in range(nRes):
+	for j in range(nRes):
+		out1.write('%.18e ' %(dist_covar_array[i,j]))
 	out1.write('\n')
 out1.close()
+
+out2 = open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w')
+for i in range(3*nRes):
+	for j in range(3*nRes):
+		out2.write('%.18e ' %(covar_array[i,j]))
+	out2.write('\n')
+out2.close()
 
 # WRITE A PCA ANALYSIS OF THIS COVAR ARRAY? 
 
