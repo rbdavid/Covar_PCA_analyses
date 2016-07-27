@@ -96,13 +96,14 @@ while start <= end:
 		temp += 1 
 	start += 1
 
+# ----------------------------------------
 # CALCULATING THE DISTANCE COVAR MATRIX OF RESIDUE RESIDUE PAIRS
 for i in range(nSteps):
 	for res1 in range(nRes):
 		delta_r = allCoord[i,res1,:] - avgCoord[res1,:]		# Calculating the delta r for every timestep
-		msd_array[res1] += dot_prod(delta_r,delta_r)
+		msd_array[res1] += dot_prod(delta_r,delta_r)		# Sum over all timesteps; 
 		for res2 in range(res1,nRes):
-			dist_covar_array[res1,res2] += dot_prod(allCoord[i,res1,:],allCoord[i,res2,:])
+			dist_covar_array[res1,res2] += dot_prod(allCoord[i,res1,:],allCoord[i,res2,:])	# Sum over all timesteps;
 dist_covar_array /= nSteps
 msd_array /= nSteps
 
@@ -113,35 +114,50 @@ for res1 in range(nRes):
 		dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])	# Normalizing each matrix element by the sqrt of the variance of the positions for res1 and res2
 		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 
+# OUTPUTING THE DIST COVAR ARRAY
+with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+	np.savetxt(f,dist_covar_array)
+
+# ----------------------------------------
 # CALCULATING THE CARTESIAN COVAR ARRAY OF RESIDUE RESIDUE PAIRS
 for i in range(nSteps):
-	temp_array = flatten(allCoord[i])
+	temp_array = flatten(allCoord[i])	# Each element in allCoord has three components (xyz); to get at the xyz components individually, flatten the first index
 	for res1 in range(3*nRes):
 		for res2 in range(res1,3*nRes):
-			cart_covar_array[res1,res2] += temp_array[res1]*temp_array[res2]
+			cart_covar_array[res1,res2] += temp_array[res1]*temp_array[res2]	# Sum over all timesteps;
 cart_covar_array /= nSteps
 
 # COMPLETE THE CARTESIAN COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN
 temp_array = flatten(avgCoord)
 for res1 in range(3*nRes):
 	for res2 in range(res1,3*nRes):
-		covar_array[res1,res2] -= temp_array[res1]*temp_array[res2]
-		covar_array[res2,res1] = covar_array[res1,res2]
+		covar_array[res1,res2] -= temp_array[res1]*temp_array[res2]	# Subtracting out the mean positions
+		covar_array[res2,res1] = covar_array[res1,res2]			# NOTE: NOT NORMALIZING THE CARTESIAN COVAR MATRIX (BY DIVIDING THE SQRT(VARIANCE) OUT); NOT SURE IF I SHOULD BEFORE PERFORMING A PCA ANALYSIS ON THIS DATASET...
+
+# OUTPUTING THE CARTESIAN COVAR ARRAY
+with open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+	np.savetxt(f,cart_covar_array)
+
+# ----------------------------------------
+
+
+
 
 # OUTPUTING THE COVAR MATRIX
-out1 = open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w')
-for i in range(nRes):
-	for j in range(nRes):
-		out1.write('%.18e ' %(dist_covar_array[i,j]))
-	out1.write('\n')
-out1.close()
+#out1 = open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w')
+#for i in range(nRes):
+#	for j in range(nRes):
+#		out1.write('%.18e ' %(dist_covar_array[i,j]))
+#	out1.write('\n')
+#out1.close()
+#
+#out2 = open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w')
+#for i in range(3*nRes):
+#	for j in range(3*nRes):
+#		out2.write('%.18e ' %(covar_array[i,j]))
+#	out2.write('\n')
+#out2.close()
 
-out2 = open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w')
-for i in range(3*nRes):
-	for j in range(3*nRes):
-		out2.write('%.18e ' %(covar_array[i,j]))
-	out2.write('\n')
-out2.close()
 
 # WRITE A PCA ANALYSIS OF THIS COVAR ARRAY? 
 
