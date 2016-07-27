@@ -180,7 +180,7 @@ if PCA == True:
 	with open('%03d.%03d.cart_pca.eigvectors.dat' %(sys.argv[3],end),'w') as f:
 		for i in range(nVec):
 			for j in range(nVec):
-				f.write('%f   ' %(eigvec[j,i]))		# Writing each vector on one row/line now, instead of the vectors corresponding to columns in the eigvec array...
+				f.write('%f   ' %(eigvec[j,i]))		# Writing each vector on one row/line now, instead of the vectors corresponding to columns in the eigvec array...; NOT projecting covar array onto the eigenvectors (do so outside of this damn script)
 			f.write('\n')
 else:
 	ffprint('PCA != True. Not performing a PCA analysis on the Cartesian Covar matrix.')
