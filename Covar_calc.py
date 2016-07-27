@@ -2,10 +2,12 @@
 ##!/mnt/lustre_fs/users/mjmcc/apps/python2.7/bin/python
 # ----------------------------------------
 # USAGE:
+# ----------------------------------------
 
 
 # ----------------------------------------
 # PREAMBLE:
+# ----------------------------------------
 
 import sys
 import numpy as np
@@ -16,6 +18,7 @@ from distance_functions import *
 
 # ----------------------------------------
 # VARIABLE DECLARATION
+# ----------------------------------------
 
 pdb_file = sys.argv[1]
 traj_loc = sys.argv[2]
@@ -26,13 +29,18 @@ avg_pdb = sys.argv[5]
 alignment = 'protein and name CA and (resid 20:25 or resid 50:55 or resid 73:75 or resid 90:94 or resid 112:116 or resid 142:147 or resid 165:169 or resid 190:194 or resid 214:218 or resid 236:240 or resid 253:258 or resid 303:307)'
 important = 'protein'
 
+Functionalize = True
+PCA = True
+
 zeros = np.zeros
 dot_prod = np.dot
 sqrt = np.sqrt
+eigen = np.linalg.eig
 flush = sys.stdout.flush
 
 # ----------------------------------------
 # SUBROUTINES:
+# ----------------------------------------
 
 def ffprint(string):
 	print '%s' %(string)
@@ -40,7 +48,7 @@ def ffprint(string):
 
 # ----------------------------------------
 # MAIN PROGRAM:
-
+# ----------------------------------------
 # INITIATE AND CALCULATE THE IMPORTANT INFORMATION ABOUT THE AVG STRUCTURE
 avg = MDAnalysis.Universe(avg_pdb)
 avg_all = avg.select_atoms('all')
@@ -56,6 +64,7 @@ avgCoord = zeros((nRes,3),dtype=np.float64)
 for i in range(nRes):
 	avgCoord[i,:] = avg_important.residues[i].center_of_mass()
 
+# ----------------------------------------
 # INITIATE AND CREATE THE IMPORTANT ATOM SELECTIONS FOR THE IMPORTANT UNIVERSE
 u = MDAnalaysis.Universe(pdb_file)
 u_all = u.select_atoms('all')
@@ -82,7 +91,6 @@ temp_array = zeros(3*nRes,dtype=np.float64)
 msd_array = zeros(nRes,dtype=np.float64)
 
 # TRAJECTORY ANALYSIS; COLLECTING THE COM INFO OF EACH RESIDUE OF INTEREST
-temp = 0
 while start <= end:
 	ffprint('Loading trajectory %s' %(start))
 	u.load_new('%sproduction.%s/production.%s.dcd' %(traj_loc,start,start))
@@ -92,8 +100,7 @@ while start <= end:
 		R,d = rotation_matrix(u_align.positions,pos0)
 		u_all.rotate(R)
 		for i in range(nRes):
-			allCoord[temp,i,:] = u_important.residues[i].center_of_mass()
-		temp += 1 
+			allCoord[ts.frame,i,:] = u_important.residues[i].center_of_mass()
 	start += 1
 
 # ----------------------------------------
@@ -119,6 +126,20 @@ with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
 	np.savetxt(f,dist_covar_array)
 
 # ----------------------------------------
+# FUNCTIONALIZING THE DISTANCE CORRELATION MATRIX (FOR USE IN WISP AND VISUALIZATION)
+if Functionalize == True:
+	for res1 in range(nRes):
+		for res2 in range(res1,nRes):
+			dist_covar_array[res1,res2] = -np.log(np.fabs(dist_covar_array[res1,res2]))
+			dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
+	
+	# OUTPUTING THE DIST COVAR ARRAY
+	with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+		np.savetxt(f,dist_covar_array)
+else: 
+	ffprint('Functionalize != True. Not functionalizing (taking -log(|C_ij|)) the distance covar matrix.')
+
+# ----------------------------------------
 # CALCULATING THE CARTESIAN COVAR ARRAY OF RESIDUE RESIDUE PAIRS
 for i in range(nSteps):
 	temp_array = flatten(allCoord[i])	# Each element in allCoord has three components (xyz); to get at the xyz components individually, flatten the first index
@@ -139,32 +160,28 @@ with open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
 	np.savetxt(f,cart_covar_array)
 
 # ----------------------------------------
-
-
-
-
-# OUTPUTING THE COVAR MATRIX
-#out1 = open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w')
-#for i in range(nRes):
-#	for j in range(nRes):
-#		out1.write('%.18e ' %(dist_covar_array[i,j]))
-#	out1.write('\n')
-#out1.close()
-#
-#out2 = open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w')
-#for i in range(3*nRes):
-#	for j in range(3*nRes):
-#		out2.write('%.18e ' %(covar_array[i,j]))
-#	out2.write('\n')
-#out2.close()
-
-
-# WRITE A PCA ANALYSIS OF THIS COVAR ARRAY? 
-
-
-
-
-
-
-
+# PCA ANALYSIS OF CARTESIAN COVAR ARRAY
+if PCA == True:
+	eigval,eigvec = eigen(cart_covar_array)
+	idx = eigval.argsort()[::-1]
+	eigval = eigval[idx]
+	
+	nVec = len(eigvec)
+	cumulative_eigval = np.zeros(nVec)
+	total_eigval = 0
+	for i in range(nVec):
+		total_eigval += eigval[i]
+		cumulative_eigval[i] = total_eigval
+	
+	with open('%03d.%03d.cart_pca.eigvalues.dat' %(sys.argv[3],end),'w') as f:
+		for i in range(nVec):
+			f.write('%f   %f   %f   %f\n' %(eigval[i],eigval[i]/total_eigval,cumulative_eigval[i],cumulative_eigval[i]/total_eigval))
+	
+	with open('%03d.%03d.cart_pca.eigvectors.dat' %(sys.argv[3],end),'w') as f:
+		for i in range(nVec):
+			for j in range(nVec):
+				f.write('%f   ' %(eigvec[j,i]))		# Writing each vector on one row/line now, instead of the vectors corresponding to columns in the eigvec array...
+			f.write('\n')
+else:
+	ffprint('PCA != True. Not performing a PCA analysis on the Cartesian Covar matrix.')
 
