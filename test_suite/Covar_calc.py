@@ -89,6 +89,7 @@ while temp <= end:
 allCoord = zeros((nSteps,nRes,3),dtype=np.float64)
 cart_covar_array = zeros((3*nRes, 3*nRes),dtype=np.float64)
 dist_covar_array = zeros((nRes,nRes),dtype=np.float64)
+test_array = zeros((nRes,nRes),dtype=np.float64)
 temp_array = zeros(3*nRes,dtype=np.float64)
 msd_array = zeros(nRes,dtype=np.float64)
 
@@ -112,20 +113,26 @@ for i in range(nSteps):
 		delta_r = allCoord[i,res1,:] - avgCoord[res1,:]		# Calculating the delta r for every timestep
 		msd_array[res1] += dot_prod(delta_r,delta_r)		# Sum over all timesteps; 
 		for res2 in range(res1,nRes):
+			temp = allCoord[i,res2,:] - avgCoord[res2,:]
+			test_array += dot_prod(delta_r,temp)
 			dist_covar_array[res1,res2] += dot_prod(allCoord[i,res1,:],allCoord[i,res2,:])	# Sum over all timesteps;
 dist_covar_array /= nSteps
+test_array /= nSteps
 msd_array /= nSteps
 
 # COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN AND NORMALIZING BY THE VARIANCE
 for res1 in range(nRes):
 	for res2 in range(res1,nRes):
 		dist_covar_array[res1,res2] -= dot_prod(avgCoord[res1,:],avgCoord[res2,:])	# Subtracting out the mean positions
-		dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])	# Normalizing each matrix element by the sqrt of the variance of the positions for res1 and res2
+#		dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])	# Normalizing each matrix element by the sqrt of the variance of the positions for res1 and res2
 		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 
 # OUTPUTING THE DIST COVAR ARRAY
 with open('%03d.%03d.dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,dist_covar_array)
+
+with open('%03d.%03d.test_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
+	np.savetxt(f,test_array)
 
 # ----------------------------------------
 # FUNCTIONALIZING THE DISTANCE CORRELATION MATRIX (FOR USE IN WISP AND VISUALIZATION)
@@ -136,7 +143,7 @@ if Functionalize == True:
 			dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 	
 	# OUTPUTING THE DIST COVAR ARRAY
-	with open('%03d.%03d.dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
+	with open('%03d.%03d.functionalized_dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 		np.savetxt(f,dist_covar_array)
 else: 
 	ffprint('Functionalize != True. Not functionalizing (taking -log(|C_ij|)) the distance covar matrix.')
