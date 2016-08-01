@@ -33,6 +33,7 @@ important = 'protein'
 Functionalize = True
 PCA = True
 
+flatten = np.ndarray.flatten
 zeros = np.zeros
 dot_prod = np.dot
 sqrt = np.sqrt
@@ -67,7 +68,7 @@ for i in range(nRes):
 
 # ----------------------------------------
 # INITIATE AND CREATE THE IMPORTANT ATOM SELECTIONS FOR THE IMPORTANT UNIVERSE
-u = MDAnalaysis.Universe(pdb_file)
+u = MDAnalysis.Universe(pdb_file)
 u_all = u.select_atoms('all')
 u_align = u.select_atoms(alignment)
 u_important = u.select_atoms(important)
@@ -80,7 +81,7 @@ if nRes != len(u_important.residues):
 nSteps = 0
 temp = start
 while temp <= end:
-	u.load_new('pdb_trajectory.pdb')
+	u.load_new('%s' %(traj_loc))
 	nSteps += len(u.trajectory)
 	temp += 1
 
@@ -123,7 +124,7 @@ for res1 in range(nRes):
 		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 
 # OUTPUTING THE DIST COVAR ARRAY
-with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+with open('%03d.%03d.dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,dist_covar_array)
 
 # ----------------------------------------
@@ -135,7 +136,7 @@ if Functionalize == True:
 			dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 	
 	# OUTPUTING THE DIST COVAR ARRAY
-	with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+	with open('%03d.%03d.dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 		np.savetxt(f,dist_covar_array)
 else: 
 	ffprint('Functionalize != True. Not functionalizing (taking -log(|C_ij|)) the distance covar matrix.')
@@ -153,11 +154,11 @@ cart_covar_array /= nSteps
 temp_array = flatten(avgCoord)
 for res1 in range(3*nRes):
 	for res2 in range(res1,3*nRes):
-		covar_array[res1,res2] -= temp_array[res1]*temp_array[res2]	# Subtracting out the mean positions
-		covar_array[res2,res1] = covar_array[res1,res2]			# NOTE: NOT NORMALIZING THE CARTESIAN COVAR MATRIX (BY DIVIDING THE SQRT(VARIANCE) OUT); NOT SURE IF I SHOULD BEFORE PERFORMING A PCA ANALYSIS ON THIS DATASET...
+		cart_covar_array[res1,res2] -= temp_array[res1]*temp_array[res2]	# Subtracting out the mean positions
+		cart_covar_array[res2,res1] = cart_covar_array[res1,res2]			# NOTE: NOT NORMALIZING THE CARTESIAN COVAR MATRIX (BY DIVIDING THE SQRT(VARIANCE) OUT); NOT SURE IF I SHOULD BEFORE PERFORMING A PCA ANALYSIS ON THIS DATASET...
 
 # OUTPUTING THE CARTESIAN COVAR ARRAY
-with open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+with open('%03d.%03d.cart_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,cart_covar_array)
 
 # ----------------------------------------
@@ -174,11 +175,11 @@ if PCA == True:
 		total_eigval += eigval[i]
 		cumulative_eigval[i] = total_eigval
 	
-	with open('%03d.%03d.cart_pca.eigvalues.dat' %(sys.argv[3],end),'w') as f:
+	with open('%03d.%03d.cart_pca.eigvalues.dat' %(int(sys.argv[3]),end),'w') as f:
 		for i in range(nVec):
 			f.write('%f   %f   %f   %f\n' %(eigval[i],eigval[i]/total_eigval,cumulative_eigval[i],cumulative_eigval[i]/total_eigval))
 	
-	with open('%03d.%03d.cart_pca.eigvectors.dat' %(sys.argv[3],end),'w') as f:
+	with open('%03d.%03d.cart_pca.eigvectors.dat' %(int(sys.argv[3]),end),'w') as f:
 		for i in range(nVec):
 			for j in range(nVec):
 				f.write('%f   ' %(eigvec[j,i]))		# Writing each vector on one row/line now, instead of the vectors corresponding to columns in the eigvec array...; NOT projecting covar array onto the eigenvectors (do so outside of this damn script)
