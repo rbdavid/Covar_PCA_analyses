@@ -110,23 +110,56 @@ while start <= end:
 # CALCULATING THE DISTANCE COVAR MATRIX OF RESIDUE RESIDUE PAIRS
 for i in range(nSteps):
 	for res1 in range(nRes):
-		delta_r = allCoord[i,res1,:] - avgCoord[res1,:]		# Calculating the delta r for every timestep
+		delta_r = allCoord[i,res1,:]-avgCoord[res1,:]		# Calculating the delta r for every timestep
 		msd_array[res1] += dot_prod(delta_r,delta_r)		# Sum over all timesteps; 
+		
+		if res1 == 0:
+			print 'COM of residue 0 @ timestep %d:' %(i), allCoord[i,res1,:]
+			print 'Average COM:', avgCoord[res1,:]
+			print 'Subtraction of the average COM gives:', delta_r
+
 		for res2 in range(res1,nRes):
-			temp = allCoord[i,res2,:] - avgCoord[res2,:]
-			test_array += dot_prod(delta_r,temp)
+			temp = allCoord[i,res2,:]-avgCoord[res2,:]
+			test_array[res1,res2] += dot_prod(delta_r,temp)
+			
+			if res1 == 0 and res2 == 0:
+				print 'Double checking the math... res2 = res1, subtraction of average COM gives:', temp
+				print 'distance^2 away from average:', dot_prod(delta_r,temp)
+
+			if res1 == 0 and res2 == 1:
+				print '\nres2 = 1, time %i, COM:' %(i), allCoord[i,res2,:], 'average COM:', avgCoord[res2,:], 'mean subtraction:', temp, 'distance^2 between res1 (0) and res2 (1):', dot_prod(delta_r,temp)
+				print '\n\n'
 			dist_covar_array[res1,res2] += dot_prod(allCoord[i,res1,:],allCoord[i,res2,:])	# Sum over all timesteps;
+
+#print 'printing the test array (unfinished, not averaged):\n', test_array[:2,:2]
+#print 'printing the dist_cavar_array (unfinished, not averaged or mean subtracted):\n', dist_covar_array[:2,:2]
+#print 'printing the msd array (unfinished, not averaged):\n', msd_array[:2]
+#print '\n\n'
+
 dist_covar_array /= nSteps
 test_array /= nSteps
 msd_array /= nSteps
 
+print 'printing the test array (averaged):\n', test_array[:2,:2]
+print 'printing the dist_cavar_array (averaged but not mean subtracted):\n', dist_covar_array[:2,:2]
+print 'printing the msd array (averaged):\n', msd_array[:2]
+print '\n\n'
+
 # COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN AND NORMALIZING BY THE VARIANCE
 for res1 in range(nRes):
 	for res2 in range(res1,nRes):
+		if res1 == 0 and res2 == 0:
+			print 'res1 = 0, res2 = 0, printing the dot prod of the average positions\n', dot_prod(avgCoord[res1,:],avgCoord[res2,:])
+		if res1 == 0 and res2 == 1:
+			print 'res1 = 0, res2 = 1, printing the dot prod of the average positions\n', dot_prod(avgCoord[res1,:],avgCoord[res2,:])
 		dist_covar_array[res1,res2] -= dot_prod(avgCoord[res1,:],avgCoord[res2,:])	# Subtracting out the mean positions
-#		dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])	# Normalizing each matrix element by the sqrt of the variance of the positions for res1 and res2
-		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
+		dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])	# Normalizing each matrix element by the sqrt of the variance of the positions for res1 and res2
+		test_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])
+#		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 
+print 'printing the test array (averaged and variance normalized):\n', test_array[:2,:2]
+print 'printing the dist_cavar_array (averaged, mean subtracted, and variance normalized):\n', dist_covar_array[:2,:2]
+sys.exit()
 # OUTPUTING THE DIST COVAR ARRAY
 with open('%03d.%03d.dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,dist_covar_array)
