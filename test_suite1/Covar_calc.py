@@ -160,6 +160,7 @@ for res1 in range(nRes):
 print 'printing the test array (averaged and variance normalized):\n', test_array[:2,:2]
 print 'printing the dist_cavar_array (averaged, mean subtracted, and variance normalized):\n', dist_covar_array[:2,:2]
 sys.exit()
+
 # OUTPUTING THE DIST COVAR ARRAY
 with open('%03d.%03d.dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,dist_covar_array)

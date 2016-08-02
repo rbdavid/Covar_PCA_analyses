@@ -81,14 +81,14 @@ while start <= end:
 	u.load_new('%s' %(traj_loc))
 
 	for ts in u.trajectory:
-		dimensions = u.dimensions[:3]
+		dims = u.dimensions[:3]
+		dims2 = dims/2.0
 
 		u_all.translate(-u_align.center_of_mass())
 
 #		for i in range(u_substrate_res):
-#			COM = np.zeros(3)
 #			COM = u_substrate.residues[i].center_of_mass()
-#			t = wrapping(COM,dimensions)
+#			t = wrapping(COM,dims,dims2)
 #			u_substrate.residues[i].atoms.translate(t)
 
 		avgCoord += u_important.positions
@@ -98,9 +98,9 @@ while start <= end:
 		temp += 1
 	start += 1
 
-#ffprint(nSteps)
-#if temp != nSteps:
-#	ffprint('Failed to analyze all timesteps; fucked shit up')
+ffprint(nSteps)
+if temp != nSteps:
+	ffprint('Failed to analyze all timesteps; fucked shit up')
 
 avgCoord /= float(nSteps)
 avgAlign /= float(nSteps)
@@ -136,6 +136,13 @@ ffprint('Writing a pdb of the average structure.')
 avg_important.positions = avgCoord
 avg_important.write('%03d.%03d.avg_structure.pdb' %(int(sys.argv[3]),end))
 ffprint('Finished writing pdb of the average structure')
+
+# PRINT out dcd frame of average structure
+ffprint('Writing a dcd frame of the average structure.')
+
+with MDAnalysis.Writer('%03d.%03d.avg_structure.dcd' %(int(sys.argv[3]),end),u_important_atoms) as W:
+	W.write(avg_important)
+ffprint('Finished writing dcd of the average structure')
 
 # APPENDING INFORMATION TO A SUMMARY FILE
 out = open('%s' %(out_file),'a')
