@@ -161,8 +161,8 @@ for i in range(nSteps):
 			cart_covar_array[res1,res2] += delta_x*temp	# Sum over all timesteps;
 cart_covar_array /= nSteps
 cart_msd_array /= nSteps
-print cart_covar_array[:6,:6]
-print cart_msd_array[:6]
+#print cart_covar_array[:6,:6]
+#print cart_msd_array[:6]
 #
 ## COMPLETE THE CARTESIAN COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN
 for res1 in range(3*nRes):
@@ -172,10 +172,10 @@ for res1 in range(3*nRes):
 		cart_covar_array[res1,res2] /= sqrt(cart_msd_array[res1]*cart_msd_array[res2])
 		cart_covar_array[res2,res1] = cart_covar_array[res1,res2]
 #
-print 'After variance normalization:'
-print cart_covar_array[:6,:6]
-print cart_msd_array[:6]
-sys.exit()
+#print 'After variance normalization:'
+#print cart_covar_array[:6,:6]
+#print cart_msd_array[:6]
+#sys.exit()
 # OUTPUTING THE CARTESIAN COVAR ARRAY
 with open('%03d.%03d.cart_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,cart_covar_array)
