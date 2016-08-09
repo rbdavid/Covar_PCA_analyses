@@ -25,6 +25,7 @@ traj_loc = sys.argv[2]
 start = int(sys.argv[3])
 end = int(sys.argv[4])
 avg_pdb = sys.argv[5]		# Used to align frames to; not to be used average positions due to precision error of positions in PDB format
+#avg_dcd = sys.argv[6]
 
 alignment = 'protein and name CA and (resid 20:25 or resid 50:55 or resid 73:75 or resid 90:94 or resid 112:116 or resid 142:147 or resid 165:169 or resid 190:194 or resid 214:218 or resid 236:240 or resid 253:258 or resid 303:307)'
 important = 'protein'
@@ -53,6 +54,7 @@ def ffprint(string):
 # ----------------------------------------
 # INITIATE AND CALCULATE THE IMPORTANT INFORMATION ABOUT THE AVG STRUCTURE
 avg = MDAnalysis.Universe(avg_pdb)
+#avg = MDAnalysis.Universe(avg_pdb,avg_dcd)
 avg_all = avg.select_atoms('all')
 avg_align = avg.select_atoms(alignment)
 avg_important = avg.select_atoms(important)
@@ -112,12 +114,13 @@ ffprint('Finished with the trajectory analysis. On to calculating the covariance
 # ----------------------------------------
 # CALCULATING THE DISTANCE COVAR MATRIX OF RESIDUE RESIDUE PAIRS
 for i in range(nSteps):
+	temp_array = zeros((nRes,3),dtype=np.float64)
 	for res1 in range(nRes):
-		delta_r = allCoord[i,res1,:] - avgCoord[res1,:]		# Calculating the delta r for every timestep
-		msd_array[res1] += dot_prod(delta_r,delta_r)		# Sum over all timesteps; 
+		temp_array[res1,:] = allCoord[i,res1,:] - avgCoord[res1,:]		# Calculating the delta r for every timestep
+		msd_array[res1] += dot_prod(temp_array[res1,:],temp_array[res1,:])		# Sum over all timesteps; 
+	for res1 in range(nRes):
 		for res2 in range(res1,nRes):
-			temp = allCoord[i,res2,:] - avgCoord[res2,:]
-			dist_covar_array[res1,res2] += dot_prod(delta_r,temp)
+			dist_covar_array[res1,res2] += dot_prod(temp_array[res1,:],temp_array[res2,:])
 dist_covar_array /= nSteps
 msd_array /= nSteps
 ffprint('Finished with filling the distance covariance matrix. On to normalizing the covar array.')
@@ -129,7 +132,7 @@ for res1 in range(nRes):
 		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 
 # OUTPUTING THE DIST COVAR ARRAY
-with open('%03d.%03d.dist_covar_matrix.dat' %(sys.argv[3],end),'w') as f:
+with open('%03d.%03d.dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,dist_covar_array)
 ffprint('Printed out the normalized distance covar array.')
 
@@ -143,7 +146,7 @@ if Functionalize == True:
 			dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 	
 	# OUTPUTING THE DIST COVAR ARRAY
-	with open('%03d.%03d.functionalized_dist_covar_matrix.dat' %(sys.argv[3],end),'w') as f:
+	with open('%03d.%03d.functionalized_dist_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 		np.savetxt(f,dist_covar_array)
 else: 
 	ffprint('Functionalize != True. Not functionalizing (taking -log(|C_ij|)) the distance covar matrix.')
@@ -159,12 +162,14 @@ cart_msd_array = zeros(3*nRes,dtype=np.float64)
 cart_avg_array = flatten(avgCoord)
 for i in range(nSteps):
 	cart_all_array = flatten(allCoord[i])	# Each element in allCoord has three components (xyz); to get at the xyz components individually, flatten the first index
+	temp_array = zeros(3*nRes,dtype=np.float64)
 	for res1 in range(3*nRes):
-		delta_x = cart_all_array[res1] - cart_avg_array[res1]
-		cart_msd_array += delta_x*delta_x
+		temp_array[res1] = cart_all_array[res1] - cart_avg_array[res1]
+		cart_msd_array[res1] += temp_array[res1]*temp_array[res1]
+	for res1 in range(3*nRes):
 		for res2 in range(res1,3*nRes):
-			temp = cart_all_array[res2] - cart_avg_array[res2]
-			cart_covar_array[res1,res2] += delta_x*temp
+			cart_covar_array[res1,res2] += temp_array[res1]*temp_array[res2]
+
 cart_covar_array /= nSteps
 cart_msd_array /= nSteps
 
@@ -172,11 +177,11 @@ cart_msd_array /= nSteps
 ffprint('Normalizing the cartesian covariance matrix using the variance.')
 for res1 in range(3*nRes):
 	for res2 in range(res1,3*nRes):
-		covar_array[res1,res2] /= sqrt(cart_msd_array[res1]*cart_msd_array[res2])
-		covar_array[res2,res1] = covar_array[res1,res2]	
+		cart_covar_array[res1,res2] /= sqrt(cart_msd_array[res1]*cart_msd_array[res2])
+		cart_covar_array[res2,res1] = cart_covar_array[res1,res2]	
 
 # OUTPUTING THE CARTESIAN COVAR ARRAY
-with open('%03d.%03d.cart_covar_matrix.dat' %(sys.argv[3],end),'w') as f:
+with open('%03d.%03d.cart_covar_matrix.dat' %(int(sys.argv[3]),end),'w') as f:
 	np.savetxt(f,cart_covar_array)
 
 # ----------------------------------------
@@ -194,11 +199,11 @@ if PCA == True:
 		total_eigval += eigval[i]
 		cumulative_eigval[i] = total_eigval
 	
-	with open('%03d.%03d.cart_pca.eigvalues.dat' %(sys.argv[3],end),'w') as f:
+	with open('%03d.%03d.cart_pca.eigvalues.dat' %(int(sys.argv[3]),end),'w') as f:
 		for i in range(nVec):
 			f.write('%f   %f   %f   %f\n' %(eigval[i],eigval[i]/total_eigval,cumulative_eigval[i],cumulative_eigval[i]/total_eigval))
 	
-	with open('%03d.%03d.cart_pca.eigvectors.dat' %(sys.argv[3],end),'w') as f:
+	with open('%03d.%03d.cart_pca.eigvectors.dat' %(int(sys.argv[3]),end),'w') as f:
 		for i in range(nVec):
 			for j in range(nVec):
 				f.write('%f   ' %(eigvec[j,i]))		# Writing each vector on one row/line now, instead of the vectors corresponding to columns in the eigvec array...; NOT projecting covar array onto the eigenvectors (do so outside of this damn script)
