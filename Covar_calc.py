@@ -64,7 +64,7 @@ ffprint('Initiated the average structure universe')
 
 # ----------------------------------------
 # INITIATE AND CREATE THE IMPORTANT ATOM SELECTIONS FOR THE IMPORTANT UNIVERSE
-u = MDAnalaysis.Universe(pdb_file)
+u = MDAnalysis.Universe(pdb_file)
 u_all = u.select_atoms('all')
 u_align = u.select_atoms(alignment)
 u_important = u.select_atoms(important)
@@ -129,7 +129,7 @@ for res1 in range(nRes):
 		dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 
 # OUTPUTING THE DIST COVAR ARRAY
-with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+with open('%03d.%03d.dist_covar_matrix.dat' %(sys.argv[3],end),'w') as f:
 	np.savetxt(f,dist_covar_array)
 ffprint('Printed out the normalized distance covar array.')
 
@@ -143,7 +143,7 @@ if Functionalize == True:
 			dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
 	
 	# OUTPUTING THE DIST COVAR ARRAY
-	with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+	with open('%03d.%03d.functionalized_dist_covar_matrix.dat' %(sys.argv[3],end),'w') as f:
 		np.savetxt(f,dist_covar_array)
 else: 
 	ffprint('Functionalize != True. Not functionalizing (taking -log(|C_ij|)) the distance covar matrix.')
@@ -158,7 +158,7 @@ cart_msd_array = zeros(3*nRes,dtype=np.float64)
 
 cart_avg_array = flatten(avgCoord)
 for i in range(nSteps):
-	 cart_all_array = flatten(allCoord[i])	# Each element in allCoord has three components (xyz); to get at the xyz components individually, flatten the first index
+	cart_all_array = flatten(allCoord[i])	# Each element in allCoord has three components (xyz); to get at the xyz components individually, flatten the first index
 	for res1 in range(3*nRes):
 		delta_x = cart_all_array[res1] - cart_avg_array[res1]
 		cart_msd_array += delta_x*delta_x
@@ -176,7 +176,7 @@ for res1 in range(3*nRes):
 		covar_array[res2,res1] = covar_array[res1,res2]	
 
 # OUTPUTING THE CARTESIAN COVAR ARRAY
-with open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
+with open('%03d.%03d.cart_covar_matrix.dat' %(sys.argv[3],end),'w') as f:
 	np.savetxt(f,cart_covar_array)
 
 # ----------------------------------------
