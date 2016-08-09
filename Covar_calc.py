@@ -60,6 +60,7 @@ avg_important = avg.select_atoms(important)
 avg_all.translate(-avg_align.center_of_mass())
 pos0 = avg_align.positions
 nRes = avg_important.n_residues
+ffprint('Initiated the average structure universe')
 
 # ----------------------------------------
 # INITIATE AND CREATE THE IMPORTANT ATOM SELECTIONS FOR THE IMPORTANT UNIVERSE
@@ -72,6 +73,8 @@ if nRes != u_important.n_residues:
 	ffprint('Number of residues do not match between average structure and trajectory universes')
 	sys.exit()
 
+ffprint('Initiated the analysis universe')
+
 # COLLECTING NSTEPS DATA... NEED TO ITERATE THROUGH ALL TRAJECTORIES TO COLLECT THIS...
 nSteps = 0
 while start <= end:
@@ -79,6 +82,7 @@ while start <= end:
 	nSteps += len(u.trajectory)
 	start += 1
 
+ffprint('The number of timesteps to be analyzed is %d.' %(nSteps))
 start = int(sys.argv[3])
 
 # ARRAY DECLARATION
@@ -102,8 +106,8 @@ while start <= end:
 			avgCoord[i,:] += u_important.residues[i].center_of_mass()
 		temp += 1
 	start += 1
-
 avgCoord /= nSteps
+ffprint('Finished with the trajectory analysis. On to calculating the covariance matrix for residue-residue COM distance.')
 
 # ----------------------------------------
 # CALCULATING THE DISTANCE COVAR MATRIX OF RESIDUE RESIDUE PAIRS
@@ -116,6 +120,7 @@ for i in range(nSteps):
 			dist_covar_array[res1,res2] += dot_prod(delta_r,temp)
 dist_covar_array /= nSteps
 msd_array /= nSteps
+ffprint('Finished with filling the distance covariance matrix. On to normalizing the covar array.')
 
 # COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN AND NORMALIZING BY THE VARIANCE
 for res1 in range(nRes):
@@ -126,10 +131,12 @@ for res1 in range(nRes):
 # OUTPUTING THE DIST COVAR ARRAY
 with open('%03d.%03d.dist_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
 	np.savetxt(f,dist_covar_array)
+ffprint('Printed out the normalized distance covar array.')
 
 # ----------------------------------------
 # FUNCTIONALIZING THE DISTANCE CORRELATION MATRIX (FOR USE IN WISP AND VISUALIZATION)
 if Functionalize == True:
+	ffprint('Beginning to functionalize the distance covar matrix.')
 	for res1 in range(nRes):
 		for res2 in range(res1,nRes):
 			dist_covar_array[res1,res2] = -np.log(np.fabs(dist_covar_array[res1,res2]))
@@ -143,6 +150,7 @@ else:
 
 # ----------------------------------------
 # CALCULATING THE CARTESIAN COVAR ARRAY OF RESIDUE RESIDUE PAIRS
+ffprint('Beginning the cartesian covariance matrix analysis')
 cart_covar_array = zeros((3*nRes, 3*nRes),dtype=np.float64)
 cart_all_array = zeros(3*nRes,dtype=np.float64)
 cart_avg_array = zeros(3*nRes,dtype=np.float64)
@@ -161,6 +169,7 @@ cart_covar_array /= nSteps
 cart_msd_array /= nSteps
 
 # COMPLETE THE CARTESIAN COVAR MATRIX ANALYSIS BY SUBTRACTING OUT THE MEAN
+ffprint('Normalizing the cartesian covariance matrix using the variance.')
 for res1 in range(3*nRes):
 	for res2 in range(res1,3*nRes):
 		covar_array[res1,res2] /= sqrt(cart_msd_array[res1]*cart_msd_array[res2])
@@ -173,6 +182,7 @@ with open('%03d.%03d.cart_cover_matrix.dat' %(sys.argv[3],end),'w') as f:
 # ----------------------------------------
 # PCA ANALYSIS OF CARTESIAN COVAR ARRAY
 if PCA == True:
+	ffprint('Beginning PCA analysis of the Cartesian covariance matrix.')
 	eigval,eigvec = eigen(cart_covar_array)
 	idx = eigval.argsort()[::-1]
 	eigval = eigval[idx]
