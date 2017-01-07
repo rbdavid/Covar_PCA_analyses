@@ -30,7 +30,7 @@ flush = sys.stdout.flush
 config_file = sys.argv[1]
 
 necessary_parameters = ['pdb_file','traj_loc','start','end','average_pdb']
-all_parameters = ['pdb_file','traj_loc','start','end','average_pdb','alignment','covar_selection','coarseness','fine_grain_selection','functionalize_bool','PCA_bool','correlation_filename','functionalized_covar_filename','summary_bool','summary_filename']
+all_parameters = ['pdb_file','traj_loc','start','end','average_pdb','alignment','covar_selection','coarseness','fine_grain_selection','dist_covar_filename','cart_covar_filename','functionalize_bool','functionalized_dist_covar_filename','PCA_bool','PCA_eigenvalues_filename','PCA_eigenvectors_filename','summary_bool','summary_filename']
 
 # ----------------------------------------
 # SUBROUTINES:
