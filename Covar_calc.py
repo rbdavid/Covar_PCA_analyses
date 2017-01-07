@@ -229,7 +229,7 @@ elif parameters['coarseness'] == 'Atomic':
 
 	avg_covar = avg.select_atoms(parameters['covar_selection'])
 
-	if nAtoms != avg_covar.select_atoms(parameters['fine_grain_selection']),n_atoms :
+	if nAtoms != avg_covar.select_atoms(parameters['fine_grain_selection']).n_atoms:
 		ffprint('The number of atoms to be analyzed in the fine_grain_selection of the covar_selection do not match between the average and analysis universes. Killing job.')
 		sys.exit()
 
@@ -253,8 +253,8 @@ elif parameters['coarseness'] == 'Atomic':
 			R,d = rotation_matrix(u_align.positions,pos0)		# MDAnalysis.analysis.align function
 			u_all.rotate(R)
 			for i in range(nAtoms):
-				allCoord[temp,i,:] = u_fine_grain.atoms[i].positions[0]
-				avgCoord[i,:] += u_fine_grain.atoms[i].positions[0]
+				allCoord[temp,i,:] = u_fine_grain.atoms[i].position
+				avgCoord[i,:] += u_fine_grain.atoms[i].position
 			temp += 1
 		start += 1
 	avgCoord /= nSteps
@@ -357,7 +357,7 @@ if parameters['PCA_bool']:
 		for i in range(nVec):
 			f.write('%f   %f   %f   %f\n' %(eigval[i],eigval[i]/total_eigval,cumulative_eigval[i],cumulative_eigval[i]/total_eigval))
 	
-	with open(parameters['PCA_eigenvectors_filename','w') as f:
+	with open(parameters['PCA_eigenvectors_filename'],'w') as f:
 		for i in range(nVec):
 			for j in range(nVec):
 				f.write('%f   ' %(eigvec[j,i]))		# Writing each vector on one row/line now, instead of the vectors corresponding to columns in the eigvec array...; NOT projecting covar array onto the eigenvectors (do so outside of this damn script)
