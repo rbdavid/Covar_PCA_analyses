@@ -20,6 +20,7 @@ flatten = np.ndarray.flatten
 zeros = np.zeros
 dot_prod = np.dot
 sqrt = np.sqrt
+sum = np.sum
 eigen = np.linalg.eig
 flush = sys.stdout.flush
 
@@ -30,7 +31,7 @@ flush = sys.stdout.flush
 config_file = sys.argv[1]
 
 necessary_parameters = ['pdb_file','traj_loc','start','end','average_pdb']
-all_parameters = ['pdb_file','traj_loc','start','end','average_pdb','alignment','covar_selection','coarseness','fine_grain_selection','dist_covar_filename','cart_covar_filename','functionalize_bool','functionalized_dist_covar_filename','PCA_bool','PCA_eigenvalues_filename','PCA_eigenvectors_filename','summary_bool','summary_filename']
+all_parameters = ['pdb_file','traj_loc','start','end','average_pdb','alignment','covar_selection','coarseness','fine_grain_selection','cartesian_correlation_filename','cartesian_average_filename','cartesian_variance_filename','distance_correlation_filename','distance_variance_filename','functionalize_distance_correlation_bool','functionalized_distance_correlation_filename','PCA_bool','PCA_eigenvalues_filename','PCA_eigenvectors_filename','summary_bool','summary_filename']
 
 # ----------------------------------------
 # SUBROUTINES:
@@ -49,10 +50,13 @@ def config_parser(config_file):	# Function to take config file and create/fill t
 	parameters['covar_selection'] = 'protein'
 	parameters['coarseness'] = 'COM'
 	parameters['fine_grain_selection'] = None
-	parameters['dist_covar_filename'] = 'distance_covar.dat'
-	parameters['cart_covar_filename'] = 'cartesian_covar.dat'
-	parameters['functionalize_bool'] = False
-	parameters['functionalized_dist_covar_filename'] = 'functionalized_dist_covar.dat'
+	parameters['cartesian_correlation_filename'] = 'cartesian_correlation.dat'
+	parameters['cartesian_average_filename'] = 'cartesian_average.dat'
+	parameters['cartesian_variance_filename'] = 'cartesian_variance.dat'
+	parameters['distance_correlation_filename'] = 'distance_correlation.dat'
+	parameters['distance_variance_filename'] = 'distance_variance.dat'
+	parameters['functionalize_distance_correlation_bool'] = False
+	parameters['functionalized_distance_correlation_filename'] = 'functionalized_dist_covar.dat'
 	parameters['PCA_bool'] = False
 	parameters['PCA_eigenvalues_filename'] = 'PCA_eigenvalues_cart_covar.dat' 
 	parameters['PCA_eigenvectors_filename'] = 'PCA_eigenvectors_cart_covar.dat' 
@@ -105,118 +109,49 @@ u_align = u.select_atoms(parameters['alignment'])
 u_covar = u.select_atoms(parameters['covar_selection'])
 
 # ----------------------------------------
-# COLLECTING NSTEPS DATA; ITERATE THROUGH ALL TRAJECTORIES AND SUM THE NUMBER OF TIMESTEPS
-nSteps = 0
-start = int(parameters['start'])
-end = int(parameters['end'])
-while start <= end:
-	u.load_new('%sproduction.%s/production.%s.dcd' %(parameters['traj_loc'],start,start))
-	nSteps += len(u.trajectory)
-	start += 1
-
-ffprint('The number of timesteps to be analyzed is %d.' %(nSteps))
-
-# ----------------------------------------
 # COARSENESS -- Center Of Mass of Residues in the covar_selection
 
 if parameters['coarseness'] == 'COM':
 	ffprint('Performing a covariance analysis of the cartesian coordinates of the center of mass of residues defined in the covar_selection parameter.')
 
-	nRes = u_covar.n_residues
-	if nRes != avg.select_atoms(parameters['covar_selection']).n_residues:
+	nNodes = u_covar.n_residues
+	nDims = nNodes*3			# each node is a point in cartesian space; therefore, the number of dimensions to collect data of is nNodes*3
+	if nNodes != avg.select_atoms(parameters['covar_selection']).n_residues:
 		ffprint('The number of residues to be used in the covar_selection do not match between the average and analysis universes. Killing job.')
 		sys.exit()
 
 	# ----------------------------------------
 	# MEMORY DECLARATION
-	allCoord = zeros((nSteps,nRes,3),dtype=np.float64)
-	avgCoord = zeros((nRes,3),dtype=np.float64)
-	dist_covar_array = zeros((nRes,nRes),dtype=np.float64)
-	msd_array = zeros(nRes,dtype=np.float64)
+	covariance_array = zeros((nDims,nDims),dtype=np.float64)
+	average_array = zeros((nDims),dtype.np.float64)
+	variance_array = zeros((nDims),dtype=np.float64)
 
 	# ----------------------------------------
 	# TRAJECTORY ANALYSIS
 	ffprint('Beginning trajectory analysis.')
-	temp = 0 
+	nSteps = 0
 	start = int(parameters['start'])
 	while start <= end:
 		ffprint('Loading trajectory %s' %(start))
 		u.load_new('%sproduction.%s/production.%s.dcd' %(parameters['traj_loc'],start,start))
+		nSteps += len(u.trajectory)
 		for ts in u.trajectory:
 			u_all.translate(-u_align.center_of_mass())
 			R,d = rotation_matrix(u_align.positions,pos0)		# MDAnalysis.analysis.align function
 			u_all.rotate(R)
-			for i in range(nRes):
-				allCoord[temp,i,:] = u_covar.residues[i].center_of_mass()
-				avgCoord[i,:] += u_covar.residues[i].center_of_mass()
-			temp += 1
+			
+			com_array = zeros((nDims),dtype=np.float64)
+			j = 0
+			for i in range(nNodes):
+				com_array[j:j+3] = u_covar.residues[i].center_of_mass() ### NEED TO CHECK THAT THIS WORKS OUT CLEANLY
+				j += 3
+			
+			for i in range(nDims):	
+				average_array[i] += com_array[i]				# summing over nSteps; x_{i}(t)
+				variance_array[i] += com_array[i]**2				# summing over nSteps; x_{i}(t)**2
+				for j in range(i,nDims):
+					covariance_array[i,j] += com_aray[i]*com_array[j]	# summing over nSteps; x_{i}(t) * x_{j}(t)
 		start += 1
-	avgCoord /= nSteps
-	ffprint('Finished with the trajectory analysis. On to calculating the covariance matrix for residue-residue COM distance.')
-
-	# ----------------------------------------
-	# CALCULATING THE DISTANCE COVAR MATRIX OF RESIDUE-RESIDUE PAIRS 
-	for i in range(nSteps):
-		temp_array = zeros((nRes,3),dtype=np.float64)
-		for res1 in range(nRes):
-			temp_array[res1,:] = allCoord[i,res1,:] - avgCoord[res1,:]		# Calculating the delta r for every timestep
-			msd_array[res1] += dot_prod(temp_array[res1,:],temp_array[res1,:])		# Sum over all timesteps; 
-		for res1 in range(nRes):
-			for res2 in range(res1,nRes):
-				dist_covar_array[res1,res2] += dot_prod(temp_array[res1,:],temp_array[res2,:])
-	dist_covar_array /= nSteps
-	msd_array /= nSteps
-	ffprint('Finished with filling the distance covariance matrix. On to normalizing the covar array.')
-	
-	# COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY NORMALIZING BY THE VARIANCE
-	for res1 in range(nRes):
-		for res2 in range(res1,nRes):
-			dist_covar_array[res1,res2] /= sqrt(msd_array[res1]*msd_array[res2])	# Normalizing each matrix element by the sqrt of the variance of the positions for res1 and res2
-			dist_covar_array[res2,res1] = dist_covar_array[res1,res2]
-	
-	# ----------------------------------------
-	# OUTPUTING THE DIST COVAR ARRAY
-	with open(parameters['dist_covar_filename'],'w') as f:
-		np.savetxt(f,dist_covar_array)
-
-	# ----------------------------------------
-	# CALCULATING THE CARTESIAN COVAR ARRAY OF RESIDUE RESIDUE PAIRS
-	ffprint('Beginning the cartesian covariance matrix analysis')
-
-	# ----------------------------------------
-	# MEMORY DECLARATION
-	cart_covar_array = zeros((3*nRes, 3*nRes),dtype=np.float64)
-	cart_all_array = zeros(3*nRes,dtype=np.float64)
-	cart_avg_array = zeros(3*nRes,dtype=np.float64)
-	cart_msd_array = zeros(3*nRes,dtype=np.float64)
-
-	# ----------------------------------------
-	# CALCULATING THE CARTESIAN COVAR MATRIX OF RESIDUE-RESIDUE PAIRS 
-	cart_avg_array = flatten(avgCoord)
-	for i in range(nSteps):
-		cart_all_array = flatten(allCoord[i])	# Each element in allCoord has three components (xyz); to get at the xyz components individually, flatten the first index
-		temp_array = zeros(3*nRes,dtype=np.float64)
-		for res1 in range(3*nRes):
-			temp_array[res1] = cart_all_array[res1] - cart_avg_array[res1]
-			cart_msd_array[res1] += temp_array[res1]*temp_array[res1]
-		for res1 in range(3*nRes):
-			for res2 in range(res1,3*nRes):
-				cart_covar_array[res1,res2] += temp_array[res1]*temp_array[res2]
-	
-	cart_covar_array /= nSteps
-	cart_msd_array /= nSteps
-	
-	# COMPLETE THE CARTESIAN COVAR MATRIX ANALYSIS BY NORMALIZING BY THE VARIANCE
-	ffprint('Normalizing the cartesian covariance matrix using the variance.')
-	for res1 in range(3*nRes):
-		for res2 in range(res1,3*nRes):
-			cart_covar_array[res1,res2] /= sqrt(cart_msd_array[res1]*cart_msd_array[res2])
-			cart_covar_array[res2,res1] = cart_covar_array[res1,res2]	
-	
-	# OUTPUTING THE CARTESIAN COVAR ARRAY
-	with open(parameters['cart_covar_filename'],'w') as f:
-		np.savetxt(f,cart_covar_array)
-	ffprint('Printed out the normalized cartesian covar array.')
 
 # ----------------------------------------
 # COARSENESS -- Atomic positions of fine_grain_selection in the covar_selection
@@ -225,118 +160,112 @@ elif parameters['coarseness'] == 'Atomic':
 	ffprint('Performing a covariance analysis of the cartesian coordinates of the fine_grain_selection for the covar_selection.')
 
 	u_fine_grain = u_covar.select_atoms(parameters['fine_grain_selection'])
-	nAtoms = u_fine_grain.n_atoms
+	nNodes = u_fine_grain.n_atoms
+	nDims = nNodes*3			# each node is a point in cartesian space; therefore, the number of dimensions to collect data of is nNodes*3
 
 	avg_covar = avg.select_atoms(parameters['covar_selection'])
-
-	if nAtoms != avg_covar.select_atoms(parameters['fine_grain_selection']).n_atoms:
+	if nNodes != avg_covar.select_atoms(parameters['fine_grain_selection']).n_atoms:
 		ffprint('The number of atoms to be analyzed in the fine_grain_selection of the covar_selection do not match between the average and analysis universes. Killing job.')
 		sys.exit()
 
 	# ----------------------------------------
 	# MEMORY DECLARATION
-	allCoord = zeros((nSteps,nAtoms,3),dtype=np.float64)
-	avgCoord = zeros((nAtoms,3),dtype=np.float64)
-	dist_covar_array = zeros((nAtoms,nAtoms),dtype=np.float64)
-	msd_array = zeros(nAtoms,dtype=np.float64)
+	covariance_array = zeros((nDims,nDims),dtype=np.float64)
+	average_array = zeros((nDims),dtype.np.float64)
+	variance_array = zeros((nDims),dtype=np.float64)
 
 	# ----------------------------------------
 	# TRAJECTORY ANALYSIS
 	ffprint('Beginning trajectory analysis.')
-	temp = 0 
+	nSteps = 0
 	start = int(parameters['start'])
 	while start <= end:
 		ffprint('Loading trajectory %s' %(start))
 		u.load_new('%sproduction.%s/production.%s.dcd' %(parameters['traj_loc'],start,start))
+		nSteps += len(u.trajectory)
 		for ts in u.trajectory:
 			u_all.translate(-u_align.center_of_mass())
 			R,d = rotation_matrix(u_align.positions,pos0)		# MDAnalysis.analysis.align function
 			u_all.rotate(R)
-			for i in range(nAtoms):
-				allCoord[temp,i,:] = u_fine_grain.atoms[i].position
-				avgCoord[i,:] += u_fine_grain.atoms[i].position
-			temp += 1
+			
+			pos_array = zeros((nDims),dtype=np.float64)
+			j = 0
+			for i in range(nNodes):
+				pos_array[j:j+3] = u_covar.atoms[i].position ### NEED TO CHECK THAT THIS WORKS OUT CLEANLY
+				j += 3
+			
+			for i in range(nDims):	
+				average_array[i] += pos_array[i]				# summing over nSteps; x_{i}(t)
+				variance_array[i] += pos_array[i]**2				# summing over nSteps; x_{i}(t)**2
+				for j in range(i,nDims):
+					covariance_array[i,j] += pos_aray[i]*pos_array[j]	# summing over nSteps; x_{i}(t) * x_{j}(t)
 		start += 1
-	avgCoord /= nSteps
-	ffprint('Finished with the trajectory analysis. On to calculating the covariance matrix for atom-atom positions.')
 
-	# ----------------------------------------
-	# CALCULATING THE DISTANCE COVAR MATRIX OF ATOM-ATOM PAIRS
-	for i in range(nSteps):
-		temp_array = zeros((nAtoms,3),dtype=np.float64)
-		for atom1 in range(nAtoms):
-			temp_array[atom1,:] = allCoord[i,atom1,:] - avgCoord[atom1,:]		# Calculating the delta r for every timestep
-			msd_array[atom1] += dot_prod(temp_array[atom1,:],temp_array[atom1,:])		# Sum over all timesteps; 
-		for atom1 in range(nAtoms):
-			for atom2 in range(atom1,nAtoms):
-				dist_covar_array[atom1,atom2] += dot_prod(temp_array[atom1,:],temp_array[atom2,:])
-	dist_covar_array /= nSteps
-	msd_array /= nSteps
-	ffprint('Finished with filling the distance covariance matrix. On to normalizing the covar array.')
-	
-	# COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY NORMALIZING BY THE VARIANCE
-	for atom1 in range(nAtoms):
-		for atom2 in range(atom1,nAtoms):
-			dist_covar_array[atom1,atom2] /= sqrt(msd_array[atom1]*msd_array[atom2])	# Normalizing each matrix element by the sqrt of the variance of the positions for atom1 and atom2
-			dist_covar_array[atom2,atom1] = dist_covar_array[atom1,atom2]
-	
-	# OUTPUTING THE DIST COVAR ARRAY
-	with open(parameters['dist_covar_filename'],'w') as f:
-		np.savetxt(f,dist_covar_array)
+covariance_array /= nSteps			# finishing the average over nSteps; <x_{i}(t) * x_{j}(t)>
+average_array /= nSteps				# finishing the average over nSteps; <x_{i}(t)>
+variance_array /= nSteps			# finishing the average over nSteps; <x_{i}(t)**2>
+variance_array -= average_array**2		# finishing the vairance analysis; <x_{i}(t)**2> - <x_{i}(t)>**2
 
-	# ----------------------------------------
-	# CALCULATING THE CARTESIAN COVAR ARRAY OF ATOM-ATOM PAIRS
-	ffprint('Beginning the cartesian covariance matrix analysis')
+# ----------------------------------------
+# FINISHING THE CARTESIAN CORRELATION MATRIX OF RESIDUE-RESIDUE PAIRS 
+cart_correlation_matrix = zeros((nDims,nDims),dtype=np.float64)
+for i in range(nDims):
+	for j in range(i,nDims):		# loops through all necessary elements
+		covariance_array[i,j] -= average_array[i]*average_array[j]					# finishing the covariance analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>; storing this array for the PCA analysis later on
+		cart_correlation_matrix[i,j] = covariance_array[i,j]/sqrt(variance_array[i]*variance_array[j])	# finishing the correlation analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>/ sqrt((<x_{i}(t)**2> - <x_{i}(t)>**2)(<x_{j}(t)**2> - <x_{j}(t)>**2))
+		cart_correlation_matrix[j,i] = cart_correlation_matrix[i,j]
 
-	# ----------------------------------------
-	# MEMORY DECLARATION
-	cart_covar_array = zeros((3*nAtoms, 3*nAtoms),dtype=np.float64)
-	cart_all_array = zeros(3*nAtoms,dtype=np.float64)
-	cart_avg_array = zeros(3*nAtoms,dtype=np.float64)
-	cart_msd_array = zeros(3*nAtoms,dtype=np.float64)
+# ----------------------------------------
+# OUTPUTING CARTESIAN DATA
+with open(parameters['cartesian_correlation_filename'],'w') as f:
+	np.savetxt(f,cart_correlation_matrix)
 
-	# ----------------------------------------
-	# CALCULATING THE CARTESIAN COVAR MATRIX OF ATOM-ATOM PAIRS 
-	cart_avg_array = flatten(avgCoord)
-	for i in range(nSteps):
-		cart_all_array = flatten(allCoord[i])	# Each element in allCoord has three components (xyz); to get at the xyz components individually, flatten the first index
-		temp_array = zeros(3*nAtoms,dtype=np.float64)
-		for atom1 in range(3*nAtoms):
-			temp_array[atom1] = cart_all_array[atom1] - cart_avg_array[atom1]
-			cart_msd_array[atom1] += temp_array[atom1]*temp_array[atom1]
-		for atom1 in range(3*nAtoms):
-			for atom2 in range(atom1,3*nAtoms):
-				cart_covar_array[atom1,atom2] += temp_array[atom1]*temp_array[atom2]
-	
-	cart_covar_array /= nSteps
-	cart_msd_array /= nSteps
-	
-	# COMPLETE THE CARTESIAN COVAR MATRIX ANALYSIS BY NORMALIZING BY THE VARIANCE
-	ffprint('Normalizing the cartesian covariance matrix using the variance.')
-	for atom1 in range(3*nAtoms):
-		for atom2 in range(atom1,3*nAtoms):
-			cart_covar_array[atom1,atom2] /= sqrt(cart_msd_array[atom1]*cart_msd_array[atom2])
-			cart_covar_array[atom2,atom1] = cart_covar_array[atom1,atom2]	
-	
-	# OUTPUTING THE CARTESIAN COVAR ARRAY
-	with open(parameters['cart_covar_filename'],'w') as f:
-		np.savetxt(f,cart_covar_array)
+with open(parameters['cartesian_average_filename'],'w') as f:
+	np.savetxt(f,average_array)
+
+with open(parameters['cartesian_variance_filename'],'w') as f:
+	np.savetxt(f,variance_array)
+
+# ----------------------------------------
+# FINISHING THE DISTANCE CORRELATION MATRIX OF RESIDUE-RESIDUE PAIRS
+distance_correlation_matrix = zeros((nNodes,nNodes),dtype=np.float64)
+distance_variance_matrix = zeros((nNodes),dtype=np.float64)
+dim1 = 0
+for i in range(nNodes):
+	distance_variance_matrix[i] = sum(variance_array[dim1:dim1+3])
+	dim2 = 0
+	for j in range(i,nNodes):
+		distance_correlation_matrix[i,j] = covariance_array[dim1+0,dim2+0] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]
+		dim2 += 3
+	dim1 += 3
+
+for i in range(nNodes):
+	for j in range(i,nNodes):
+		distance_correlation_matrix[i,j] /= sqrt(distance_variance_matrix[i]*distance_variance_matrix[j])
+		distance_correlation_matrix[j,i] = distance_correlation_matrix[i,j]
+
+# ----------------------------------------
+# OUTPUTING DISTANCE DATA
+with open(parameters['distance_correlation_filename'],'w') as f:
+	np.savetxt(f,distance_correlation_matrix)
+
+with open(parameters['distance_variance_filename'],'w') as f:
+	np.savetxt(f,distance_variance_array)
 
 # ----------------------------------------
 # FUNCTIONALIZING THE DISTANCE CORRELATION MATRIX (FOR USE IN WISP AND VISUALIZATION)
-if parameters['functionalize_bool']:
+if parameters['functionalize_distance_correlation_bool']:
 	ffprint('Beginning to functionalize the distance covar matrix.')
-	nElements = len(dist_covar_array)
-	for element1 in range(nElements):
-		for element2 in range(element1,nElements):
-			dist_covar_array[element1,element2] = -np.log(np.fabs(dist_covar_array[element1,element2]))
-			dist_covar_array[element2,element1] = dist_covar_array[element1,element2]
+	for node1 in range(nNodes):
+		for node2 in range(node1,nNodes):
+			distance_correlation_matrix[node1,node2] = -np.log(np.fabs(distance_correlation_matrix[node1,node2]))
+			distance_correlation_matrix[node2,node1] = distance_correlation_matrix[node1,node2]
 	
 	# OUTPUTING THE DIST COVAR ARRAY
-	with open(parameters['functionalized_dist_covar_filename'],'w') as f:
-		np.savetxt(f,dist_covar_array)
+	with open(parameters['functionalized_distance_correlation_filename'],'w') as f:
+		np.savetxt(f,distance_correlation_matrix)
 else: 
-	ffprint('Functionalize != True. Not functionalizing (taking -log(|C_ij|)) the distance covar matrix.')
+	ffprint('Functionalize != True. Not functionalizing (taking -log(|C_ij|)) the distance correlation matrix.')
 
 # ----------------------------------------
 # PCA ANALYSIS OF CARTESIAN COVAR ARRAY
@@ -364,4 +293,7 @@ if parameters['PCA_bool']:
 			f.write('\n')
 else:
 	ffprint('PCA_bool != True. Not performing a PCA analysis on the Cartesian Covar matrix.')
+
+if parameters['summary_bool']:
+	summary(parameters['summary_filename'])
 
