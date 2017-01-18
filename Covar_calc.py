@@ -14,11 +14,8 @@ import numpy as np
 from numpy.linalg import *
 import MDAnalysis
 from MDAnalysis.analysis.align import *
-from distance_functions import *
 
-flatten = np.ndarray.flatten
 zeros = np.zeros
-dot_prod = np.dot
 sqrt = np.sqrt
 sum = np.sum
 eigen = np.linalg.eig
