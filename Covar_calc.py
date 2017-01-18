@@ -131,8 +131,7 @@ if parameters['coarseness'] == 'COM':
 	nSteps = 0
 	while start <= end:
 		ffprint('Loading trajectory %s' %(start))
-#		u.load_new('%sproduction.%s/production.%s.dcd' %(parameters['traj_loc'],start,start))
-		u.load_new(parameters['traj_loc'])
+		u.load_new('%sproduction.%s/production.%s.dcd' %(parameters['traj_loc'],start,start))
 		nSteps += len(u.trajectory)
 		for ts in u.trajectory:
 			u_all.translate(-u_align.center_of_mass())
@@ -179,8 +178,7 @@ elif parameters['coarseness'] == 'Atomic':
 	start = int(parameters['start'])
 	while start <= end:
 		ffprint('Loading trajectory %s' %(start))
-#		u.load_new('%sproduction.%s/production.%s.dcd' %(parameters['traj_loc'],start,start))
-		u.load_new(parameters['traj_loc'])
+		u.load_new('%sproduction.%s/production.%s.dcd' %(parameters['traj_loc'],start,start))
 		nSteps += len(u.trajectory)
 		for ts in u.trajectory:
 			u_all.translate(-u_align.center_of_mass())

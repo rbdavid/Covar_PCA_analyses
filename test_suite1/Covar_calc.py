@@ -14,11 +14,8 @@ import numpy as np
 from numpy.linalg import *
 import MDAnalysis
 from MDAnalysis.analysis.align import *
-from distance_functions import *
 
-flatten = np.ndarray.flatten
 zeros = np.zeros
-dot_prod = np.dot
 sqrt = np.sqrt
 sum = np.sum
 eigen = np.linalg.eig
@@ -118,7 +115,6 @@ if parameters['coarseness'] == 'COM':
 
 	nNodes = u_covar.n_residues
 	nDims = nNodes*3			# each node is a point in cartesian space; therefore, the number of dimensions to collect data of is nNodes*3
-	print nNodes, nDims
 	if nNodes != avg.select_atoms(parameters['covar_selection']).n_residues:
 		ffprint('The number of residues to be used in the covar_selection do not match between the average and analysis universes. Killing job.')
 		sys.exit()
@@ -148,8 +144,6 @@ if parameters['coarseness'] == 'COM':
 				j = i*3
 				com_array[j:j+3] = u_covar.residues[i].center_of_mass() 
 			
-			print com_array[0:9]
-			
 			for i in range(nDims):	
 				average_array[i] += com_array[i]				# summing over nSteps; x_{i}(t)
 				variance_array[i] += com_array[i]**2				# summing over nSteps; x_{i}(t)**2
@@ -166,7 +160,6 @@ elif parameters['coarseness'] == 'Atomic':
 	u_fine_grain = u_covar.select_atoms(parameters['fine_grain_selection'])
 	nNodes = u_fine_grain.n_atoms
 	nDims = nNodes*3			# each node is a point in cartesian space; therefore, the number of dimensions to collect data of is nNodes*3
-	print nNodes, nDims
 
 	avg_covar = avg.select_atoms(parameters['covar_selection'])
 	if nNodes != avg_covar.select_atoms(parameters['fine_grain_selection']).n_atoms:
@@ -199,8 +192,6 @@ elif parameters['coarseness'] == 'Atomic':
 				j = i*3
 				pos_array[j:j+3] = u_covar.atoms[i].position 
 			
-			print pos_array[0:9]
-			
 			for i in range(nDims):
 				average_array[i] += pos_array[i]				# summing over nSteps; x_{i}(t)
 				variance_array[i] += pos_array[i]**2				# summing over nSteps; x_{i}(t)**2
@@ -208,14 +199,10 @@ elif parameters['coarseness'] == 'Atomic':
 					covariance_array[i,j] += pos_array[i]*pos_array[j]	# summing over nSteps; x_{i}(t) * x_{j}(t)
 		start += 1
 
-print nSteps
-
 covariance_array /= nSteps			# finishing the average over nSteps; <x_{i}(t) * x_{j}(t)>
 average_array /= nSteps				# finishing the average over nSteps; <x_{i}(t)>
 variance_array /= nSteps			# finishing the average over nSteps; <x_{i}(t)**2>
-print 'variance:',variance_array[0:9],'average:',average_array[0:9]
 variance_array -= average_array**2		# finishing the vairance analysis; <x_{i}(t)**2> - <x_{i}(t)>**2
-print 'finished variance:', variance_array[0:9]
 
 # ----------------------------------------
 # FINISHING THE CARTESIAN CORRELATION MATRIX OF RESIDUE-RESIDUE PAIRS 
@@ -224,11 +211,7 @@ for i in range(nDims):
 	for j in range(i,nDims):		# loops through all necessary elements
 		covariance_array[i,j] -= average_array[i]*average_array[j]					# finishing the covariance analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>; storing this array for the PCA analysis later on
 		cart_correlation_matrix[i,j] = covariance_array[i,j]/sqrt(variance_array[i]*variance_array[j])	# finishing the correlation analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>/ sqrt((<x_{i}(t)**2> - <x_{i}(t)>**2)(<x_{j}(t)**2> - <x_{j}(t)>**2))
-		cart_correlation_matrix[j,i] = cart_correlation_matrix[i,j]
-
-print 'cartesian covariance:',covariance_array[0][0:9]
-print 'com1 with com2 cartesian covariance values... :', covariance_array[0][3],covariance_array[1][4],covariance_array[2][5]
-print 'cartesian correlation:',cart_correlation_matrix[0][0:9]
+		cart_correlation_matrix[j,i] = cart_correlation_matrix[i,j]					# filling in the bottom triangle of this matrix
 
 # ----------------------------------------
 # OUTPUTING CARTESIAN DATA
@@ -247,25 +230,15 @@ distance_correlation_matrix = zeros((nNodes,nNodes),dtype=np.float64)
 distance_variance_array = zeros((nNodes),dtype=np.float64)
 for i in range(nNodes):
 	dim1 = i*3
-	if i == 0:
-		print variance_array[dim1:dim1+3], dim1
-	distance_variance_array[i] = sum(variance_array[dim1:dim1+3])
+	distance_variance_array[i] = sum(variance_array[dim1:dim1+3])						# summing the variances of the dimensions of node i; <r_{i}(t)**2>
 	for j in range(i,nNodes):
 		dim2 = j*3
-		distance_correlation_matrix[i,j] = covariance_array[dim1,dim2] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]
-
-print 'distance variance:',distance_variance_array[0:3]
-print 'distance covariance:',distance_correlation_matrix[0][0:3]
-
-with open('DIST_COVAR.dat','w') as f:
-	np.savetxt(f,distance_correlation_matrix)
+		distance_correlation_matrix[i,j] = covariance_array[dim1,dim2] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]	# taking the trace of the covariance analysis matrix for the desired dimensions of nodes i and j; <r_{i}(t) dot r_{j}(t)> - <r_{i}(t)> dot <r_{j}(t)> 
 
 for i in range(nNodes):
 	for j in range(i,nNodes):
-		distance_correlation_matrix[i,j] /= sqrt(distance_variance_array[i]*distance_variance_array[j])
-		distance_correlation_matrix[j,i] = distance_correlation_matrix[i,j]
-
-print 'distance correlation:',distance_correlation_matrix[0][0:3]
+		distance_correlation_matrix[i,j] /= sqrt(distance_variance_array[i]*distance_variance_array[j])	# finishing the coorelation analysis; <r_{i}(t) dot r_{j}(t)> - <r_{i}(t)> dot <r_{j}(t)>/  sqrt((<r_{i}(t)**2> - <r_{i}(t)>**2)(<r_{j}(t)**2> - <r_{j}(t)>**2))
+		distance_correlation_matrix[j,i] = distance_correlation_matrix[i,j]				# filling in the bottom triangle of this matrix
 
 # ----------------------------------------
 # OUTPUTING DISTANCE DATA
