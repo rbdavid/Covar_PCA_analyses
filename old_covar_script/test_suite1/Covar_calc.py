@@ -276,7 +276,10 @@ elif parameters['coarseness'] == 'Atomic':
 	dist_covar_array /= nSteps
 	msd_array /= nSteps
 	ffprint('Finished with filling the distance covariance matrix. On to normalizing the covar array.')
-	
+
+	with open('DIST_COVAR.dat','w') as f:
+		np.savetxt(f,dist_covar_array)
+
 	# COMPLETE THE DISTANCE COVAR MATRIX ANALYSIS BY NORMALIZING BY THE VARIANCE
 	for atom1 in range(nAtoms):
 		for atom2 in range(atom1,nAtoms):

@@ -144,12 +144,11 @@ if parameters['coarseness'] == 'COM':
 			u_all.rotate(R)
 			
 			com_array = zeros((nDims),dtype=np.float64)
-			j = 0
 			for i in range(nNodes):
+				j = i*3
 				com_array[j:j+3] = u_covar.residues[i].center_of_mass() 
-				if i == 0:
-					print com_array[j:j+3]
-				j += 3
+			
+			print com_array[0:9]
 			
 			for i in range(nDims):	
 				average_array[i] += com_array[i]				# summing over nSteps; x_{i}(t)
@@ -196,24 +195,27 @@ elif parameters['coarseness'] == 'Atomic':
 			u_all.rotate(R)
 			
 			pos_array = zeros((nDims),dtype=np.float64)
-			j = 0
 			for i in range(nNodes):
+				j = i*3
 				pos_array[j:j+3] = u_covar.atoms[i].position 
-				if i == 0:
-					print pos_array[j:j+3]
-				j += 3
 			
-			for i in range(nDims):	
+			print pos_array[0:9]
+			
+			for i in range(nDims):
 				average_array[i] += pos_array[i]				# summing over nSteps; x_{i}(t)
 				variance_array[i] += pos_array[i]**2				# summing over nSteps; x_{i}(t)**2
 				for j in range(i,nDims):
 					covariance_array[i,j] += pos_array[i]*pos_array[j]	# summing over nSteps; x_{i}(t) * x_{j}(t)
 		start += 1
 
+print nSteps
+
 covariance_array /= nSteps			# finishing the average over nSteps; <x_{i}(t) * x_{j}(t)>
 average_array /= nSteps				# finishing the average over nSteps; <x_{i}(t)>
 variance_array /= nSteps			# finishing the average over nSteps; <x_{i}(t)**2>
+print 'variance:',variance_array[0:9],'average:',average_array[0:9]
 variance_array -= average_array**2		# finishing the vairance analysis; <x_{i}(t)**2> - <x_{i}(t)>**2
+print 'finished variance:', variance_array[0:9]
 
 # ----------------------------------------
 # FINISHING THE CARTESIAN CORRELATION MATRIX OF RESIDUE-RESIDUE PAIRS 
@@ -223,6 +225,10 @@ for i in range(nDims):
 		covariance_array[i,j] -= average_array[i]*average_array[j]					# finishing the covariance analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>; storing this array for the PCA analysis later on
 		cart_correlation_matrix[i,j] = covariance_array[i,j]/sqrt(variance_array[i]*variance_array[j])	# finishing the correlation analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>/ sqrt((<x_{i}(t)**2> - <x_{i}(t)>**2)(<x_{j}(t)**2> - <x_{j}(t)>**2))
 		cart_correlation_matrix[j,i] = cart_correlation_matrix[i,j]
+
+print 'cartesian covariance:',covariance_array[0][0:9]
+print 'com1 with com2 cartesian covariance values... :', covariance_array[0][3],covariance_array[1][4],covariance_array[2][5]
+print 'cartesian correlation:',cart_correlation_matrix[0][0:9]
 
 # ----------------------------------------
 # OUTPUTING CARTESIAN DATA
@@ -248,10 +254,18 @@ for i in range(nNodes):
 		dim2 = j*3
 		distance_correlation_matrix[i,j] = covariance_array[dim1,dim2] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]
 
+print 'distance variance:',distance_variance_array[0:3]
+print 'distance covariance:',distance_correlation_matrix[0][0:3]
+
+with open('DIST_COVAR.dat','w') as f:
+	np.savetxt(f,distance_correlation_matrix)
+
 for i in range(nNodes):
 	for j in range(i,nNodes):
 		distance_correlation_matrix[i,j] /= sqrt(distance_variance_array[i]*distance_variance_array[j])
 		distance_correlation_matrix[j,i] = distance_correlation_matrix[i,j]
+
+print 'distance correlation:',distance_correlation_matrix[0][0:3]
 
 # ----------------------------------------
 # OUTPUTING DISTANCE DATA
