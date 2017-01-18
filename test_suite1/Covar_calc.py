@@ -239,14 +239,14 @@ with open(parameters['cartesian_variance_filename'],'w') as f:
 # FINISHING THE DISTANCE CORRELATION MATRIX OF RESIDUE-RESIDUE PAIRS
 distance_correlation_matrix = zeros((nNodes,nNodes),dtype=np.float64)
 distance_variance_array = zeros((nNodes),dtype=np.float64)
-dim1 = 0
 for i in range(nNodes):
+	dim1 = i*3
+	if i == 0:
+		print variance_array[dim1:dim1+3], dim1
 	distance_variance_array[i] = sum(variance_array[dim1:dim1+3])
-	dim2 = 0
 	for j in range(i,nNodes):
-		distance_correlation_matrix[i,j] = covariance_array[dim1+0,dim2+0] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]
-		dim2 += 3
-	dim1 += 3
+		dim2 = j*3
+		distance_correlation_matrix[i,j] = covariance_array[dim1,dim2] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]
 
 for i in range(nNodes):
 	for j in range(i,nNodes):
