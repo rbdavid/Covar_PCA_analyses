@@ -264,6 +264,10 @@ else:
 # ----------------------------------------
 # PCA ANALYSIS OF CARTESIAN COVAR ARRAY
 if parameters['PCA_bool']:
+	for i in range(nDims):
+		for j in range(i,nDims):
+			covariance_array[j,i] = covariance_array[i,j]
+
 	ffprint('Beginning PCA analysis of the Cartesian covariance matrix.')
 	eigval,eigvec = eigen(covariance_array)
 	idx = eigval.argsort()[::-1]
