@@ -255,7 +255,7 @@ with open(parameters['distance_variance_filename'],'w') as f:
 	np.savetxt(f,distance_variance_array)
 
 with open(parameters['distance_covariance_filename'],'w') as f:
-	np.savetxt(f,distance_covariance_array)
+	np.savetxt(f,distance_covariance_matrix)
 
 # ----------------------------------------
 # FUNCTIONALIZING THE DISTANCE CORRELATION MATRIX (FOR USE IN WISP AND VISUALIZATION)
