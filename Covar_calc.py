@@ -28,7 +28,7 @@ flush = sys.stdout.flush
 config_file = sys.argv[1]
 
 necessary_parameters = ['pdb_file','traj_loc','start','end','average_pdb']
-all_parameters = ['pdb_file','traj_loc','start','end','average_pdb','alignment','covar_selection','coarseness','fine_grain_selection','cartesian_correlation_filename','cartesian_average_filename','cartesian_variance_filename','distance_correlation_filename','distance_variance_filename','functionalize_distance_correlation_bool','functionalized_distance_correlation_filename','PCA_bool','PCA_eigenvalues_filename','PCA_eigenvectors_filename','summary_bool','summary_filename']
+all_parameters = ['pdb_file','traj_loc','start','end','average_pdb','alignment','covar_selection','coarseness','fine_grain_selection','cartesian_correlation_filename','cartesian_average_filename','cartesian_variance_filename','cartesian_covariance_filename','distance_correlation_filename','distance_variance_filename','distance_covariance_filename','functionalize_distance_correlation_bool','functionalized_distance_correlation_filename','PCA_bool','PCA_eigenvalues_filename','PCA_eigenvectors_filename','summary_bool','summary_filename']
 
 # ----------------------------------------
 # SUBROUTINES:
@@ -50,8 +50,10 @@ def config_parser(config_file):	# Function to take config file and create/fill t
 	parameters['cartesian_correlation_filename'] = 'cartesian_correlation.dat'
 	parameters['cartesian_average_filename'] = 'cartesian_average.dat'
 	parameters['cartesian_variance_filename'] = 'cartesian_variance.dat'
+	parameters['cartesian_covariance_filename'] = 'cartesian_covariance.dat'
 	parameters['distance_correlation_filename'] = 'distance_correlation.dat'
 	parameters['distance_variance_filename'] = 'distance_variance.dat'
+	parameters['distance_covariance_filename'] = 'distance_covariance.dat'
 	parameters['functionalize_distance_correlation_bool'] = False
 	parameters['functionalized_distance_correlation_filename'] = 'functionalized_dist_covar.dat'
 	parameters['PCA_bool'] = False
@@ -208,6 +210,7 @@ cart_correlation_matrix = zeros((nDims,nDims),dtype=np.float64)
 for i in range(nDims):
 	for j in range(i,nDims):		# loops through all necessary elements
 		covariance_array[i,j] -= average_array[i]*average_array[j]					# finishing the covariance analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>; storing this array for the PCA analysis later on
+		covariance_array[j,i] = covariance_array[i,j]
 		cart_correlation_matrix[i,j] = covariance_array[i,j]/sqrt(variance_array[i]*variance_array[j])	# finishing the correlation analysis; <x_{i}(t) * x_{j}(t)> - <x_{i}(t)>*<x_{j}(t)>/ sqrt((<x_{i}(t)**2> - <x_{i}(t)>**2)(<x_{j}(t)**2> - <x_{j}(t)>**2))
 		cart_correlation_matrix[j,i] = cart_correlation_matrix[i,j]					# filling in the bottom triangle of this matrix
 
@@ -222,8 +225,12 @@ with open(parameters['cartesian_average_filename'],'w') as f:
 with open(parameters['cartesian_variance_filename'],'w') as f:
 	np.savetxt(f,variance_array)
 
+with open(parameters['cartesian_covariance_filename'],'w') as f:
+	np.savetxt(f,covariance_array)
+
 # ----------------------------------------
 # FINISHING THE DISTANCE CORRELATION MATRIX OF RESIDUE-RESIDUE PAIRS
+distance_covariance_matrix = zeros((nNodes,nNodes),dtype=np.float64)
 distance_correlation_matrix = zeros((nNodes,nNodes),dtype=np.float64)
 distance_variance_array = zeros((nNodes),dtype=np.float64)
 for i in range(nNodes):
@@ -231,11 +238,12 @@ for i in range(nNodes):
 	distance_variance_array[i] = sum(variance_array[dim1:dim1+3])						# summing the variances of the dimensions of node i; <r_{i}(t)**2>
 	for j in range(i,nNodes):
 		dim2 = j*3
-		distance_correlation_matrix[i,j] = covariance_array[dim1,dim2] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]	# taking the trace of the covariance analysis matrix for the desired dimensions of nodes i and j; <r_{i}(t) dot r_{j}(t)> - <r_{i}(t)> dot <r_{j}(t)> 
+		distance_covariance_matrix[i,j] = covariance_array[dim1,dim2] + covariance_array[dim1+1,dim2+1] + covariance_array[dim1+2,dim2+2]	# taking the trace of the covariance analysis matrix for the desired dimensions of nodes i and j; <r_{i}(t) dot r_{j}(t)> - <r_{i}(t)> dot <r_{j}(t)> 
+		distance_covariance_matrix[j,i] = distance_covariance_matrix[i,j]
 
 for i in range(nNodes):
 	for j in range(i,nNodes):
-		distance_correlation_matrix[i,j] /= sqrt(distance_variance_array[i]*distance_variance_array[j])	# finishing the coorelation analysis; <r_{i}(t) dot r_{j}(t)> - <r_{i}(t)> dot <r_{j}(t)>/  sqrt((<r_{i}(t)**2> - <r_{i}(t)>**2)(<r_{j}(t)**2> - <r_{j}(t)>**2))
+		distance_correlation_matrix[i,j] = distance_covariance_matrix[i,j]/sqrt(distance_variance_array[i]*distance_variance_array[j])	# finishing the coorelation analysis; <r_{i}(t) dot r_{j}(t)> - <r_{i}(t)> dot <r_{j}(t)>/  sqrt((<r_{i}(t)**2> - <r_{i}(t)>**2)(<r_{j}(t)**2> - <r_{j}(t)>**2))
 		distance_correlation_matrix[j,i] = distance_correlation_matrix[i,j]				# filling in the bottom triangle of this matrix
 
 # ----------------------------------------
@@ -245,6 +253,9 @@ with open(parameters['distance_correlation_filename'],'w') as f:
 
 with open(parameters['distance_variance_filename'],'w') as f:
 	np.savetxt(f,distance_variance_array)
+
+with open(parameters['distance_covariance_filename'],'w') as f:
+	np.savetxt(f,distance_covariance_matrix)
 
 # ----------------------------------------
 # FUNCTIONALIZING THE DISTANCE CORRELATION MATRIX (FOR USE IN WISP AND VISUALIZATION)
